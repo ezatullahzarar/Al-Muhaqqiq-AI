@@ -25,7 +25,7 @@ with st.sidebar:
 if api_key:
     genai.configure(api_key=api_key)
     # یہاں ہم نے 'latest' ماڈل کا استعمال کیا ہے تاکہ Error نہ آئے
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-1.5-pro')
 
     # آپشنز
     source = st.radio("تحقیق کا ذریعہ منتخب کریں:", ["لوکل فائل (PDF/Image)", "انٹرنیٹ PDF لنک", "عالمی ویب سرچ"])
