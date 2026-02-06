@@ -2,91 +2,82 @@ import streamlit as st
 import google.generativeai as genai
 
 # پیج سیٹنگز
-st.set_page_config(page_title="المحقّق AI - عالمی ریسرچ انجن", layout="wide")
+st.set_page_config(page_title="المحقّق AI - ریسرچ انجن", layout="wide")
 
-# اردو فونٹ اور ڈیزائن
+# اردو ڈیزائن
 st.markdown("""
     <style>
-    .stApp { direction: rtl; text-align: right; font-family: 'Jameel Noori Nastaleeq', 'Noto Sans Arabic', sans-serif; }
-    div.stButton > button { width: 100%; border-radius: 10px; background-color: #1e3a8a; color: white; }
+    .stApp { direction: rtl; text-align: right; font-family: 'Jameel Noori Nastaleeq', sans-serif; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🔍 المحقّق AI: جامع علمی و تحقیقی مرکز")
+st.title("🔍 المحقّق AI: جامع تحقیقی مرکز")
 
 with st.sidebar:
-    st.header("⚙️ ریسرچ کنٹرول پینل")
+    st.header("⚙️ ترتیبات")
     api_key = st.text_input("Gemini API Key درج کریں:", type="password")
-    
-    st.markdown("---")
-    st.write("### 🚀 خصوصی فیچرز:")
-    st.info("""
-    1. **ملٹی فائل ریسرچ:** ایک ساتھ کئی کتب میں تلاش۔
-    2. **عالمی سرچ:** ویب پر موجود ہر زبان کی کتب تک رسائی۔
-    3. **نسخوں کا موازنہ:** مختلف پبلشرز اور ایڈیشنز کی پہچان۔
-    """)
 
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # جدید ترین فلیش ماڈل جو بڑی فائلز اور ویب سرچ کے لیے بہترین ہے
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # --- ایرر ختم کرنے والا جادوئی حصہ ---
+        @st.cache_resource
+        def get_best_model():
+            try:
+                # دستیاب ماڈلز کی فہرست حاصل کریں
+                models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                # ترجیحی ترتیب: 1.5 Flash -> 1.5 Pro -> Gemini Pro
+                if 'models/gemini-1.5-flash' in models: return 'models/gemini-1.5-flash'
+                if 'models/gemini-1.5-pro' in models: return 'models/gemini-1.5-pro'
+                return models[0] # جو بھی پہلا دستیاب ہو
+            except:
+                return 'gemini-pro' # آخری حل
 
-        # 1. تحقیق کا ذریعہ منتخب کریں
-        source = st.radio("تحقیق کا دائرہ منتخب کریں:", 
-                          ["میری لائبریری (ملٹی فائل اپ لوڈ)", "عالمی ویب سرچ و ڈیجیٹل کتب"])
+        selected_model_name = get_best_model()
+        model = genai.GenerativeModel(selected_model_name)
+        # ----------------------------------
+
+        source = st.radio("تحقیق کا ذریعہ:", ["میری لائبریری (ملٹی فائلز)", "عالمی ویب سرچ"])
 
         user_files = []
-        if source == "میری لائبریری (ملٹی فائل اپ لوڈ)":
-            user_files = st.file_uploader("ایک یا زائد کتابیں (PDF) منتخب کریں:", type=['pdf'], accept_multiple_files=True)
-            if user_files:
-                st.success(f"مجموعی طور پر {len(user_files)} فائلیں منتخب کی گئی ہیں۔")
+        if source == "میری لائبریری (ملٹی فائلز)":
+            # آپ کی شرط: ہارڈ ڈسک سے ملٹی فائل اپ لوڈ
+            user_files = st.file_uploader("کتب (PDF) منتخب کریں:", type=['pdf'], accept_multiple_files=True)
 
-        # 2. سوال اور مخصوص ہدایات
-        query = st.text_area("آپ کا سوال (مثلاً: فلان پبلشر کے نسخے میں یہ مسئلہ کہاں ہے؟)", height=150)
+        query = st.text_area("آپ کا سوال:")
         
-        # ایڈوانس آپشنز
         col1, col2 = st.columns(2)
         with col1:
-            publisher = st.text_input("مخصوص پبلشر (اختیاری):")
+            publisher = st.text_input("مخصوص پبلشر:")
         with col2:
-            edition = st.text_input("مخصوص جلد یا سال (اختیاری):")
+            edition = st.text_input("جلد/صفحہ نمبر:")
 
         if st.button("جامع تحقیق شروع کریں"):
-            if not query:
-                st.error("براہِ کرم اپنا سوال درج کریں۔")
-            else:
-                with st.spinner("المحقّق AI ہزاروں صفحات اور ویب لنکس کو کھنگال رہا ہے..."):
-                    # اے آئی کے لیے خصوصی ہدایات
-                    system_instr = f"""آپ ایک عالمی سطح کے اسلامی محقق اور لائبریرین ہیں۔ 
-                    آپ کا کام صارف کو مستند حوالہ فراہم کرنا ہے۔ 
-                    جواب میں درج ذیل تفصیل لازمی ہو:
-                    - کتاب کا نام، مصنف، پبلشر، جلد اور صفحہ نمبر۔
-                    - اگر انٹرنیٹ پر اس کتاب کے مختلف نسخے (طبع) موجود ہیں تو ان کا ذکر کریں اور بتائیں کہ کس نسخے میں کیا فرق ہے۔
-                    - اگر صارف نے مخصوص پبلشر ({publisher}) پوچھا ہے تو ترجیحاً اسی کا حوالہ دیں۔
-                    - زبان کوئی بھی ہو، جواب اردو میں جامع تحقیقی انداز میں دیں۔"""
+            with st.spinner(f"ماڈل ({selected_model_name}) تحقیق کر رہا ہے..."):
+                # آپ کی شرط: عالمی سرچ اور نسخوں کا موازنہ
+                sys_prompt = f"""آپ ایک ماہر محقق ہیں۔ 
+                - پبلشر: {publisher} اور ایڈیشن: {edition} کی تفصیل لازمی دیں۔
+                - اگر ایک سے زیادہ نسخے ہیں تو ان کا حوالہ (جلد، صفحہ) موازنہ کے ساتھ دیں۔
+                - جواب مکمل اردو اور علمی ہو۔"""
 
-                    try:
-                        if source == "میری لائبریری (ملٹی فائل اپ لوڈ)" and user_files:
-                            # تمام فائلوں کو ایک ساتھ پروسیس کرنا
-                            content_list = []
-                            for file in user_files:
-                                content_list.append({"mime_type": "application/pdf", "data": file.read()})
-                            content_list.append(system_instr + "\n" + query)
-                            response = model.generate_content(content_list)
-                        else:
-                            # عالمی ویب سرچ
-                            full_prompt = f"{system_instr} \n سوال: {query} \n پبلشر: {publisher} \n ایڈیشن: {edition}"
-                            response = model.generate_content(full_prompt)
-
-                        st.markdown("### 📜 تحقیقی رپورٹ:")
-                        st.markdown(response.text)
-                        
-                    except Exception as e:
-                        st.error(f"تحقیق کے دوران خرابی: {str(e)}")
-                        st.info("مشورہ: اگر '400' ایرر آئے تو اپنی API Key چیک کریں یا فائل کا سائز کم کریں۔")
+                try:
+                    if source == "میری لائبریری (ملٹی فائلز)" and user_files:
+                        payload = []
+                        for f in user_files:
+                            payload.append({"mime_type": "application/pdf", "data": f.read()})
+                        payload.append(sys_prompt + "\n" + query)
+                        response = model.generate_content(payload)
+                    else:
+                        response = model.generate_content(sys_prompt + "\n" + query)
+                    
+                    st.markdown("### 📜 تحقیقی رپورٹ:")
+                    st.write(response.text)
+                except Exception as e:
+                    st.error(f"تحقیق میں خرابی: {e}")
+                    st.info("مشورہ: ایک بار ایپ ریبوٹ (Reboot) کر کے دیکھیں۔")
 
     except Exception as e:
-        st.error(f"سسٹم کنکشن ایرر: {e}")
+        st.error(f"سسٹم کنکشن میں مسئلہ: {e}")
 else:
-    st.warning("تحقیق شروع کرنے کے لیے سائیڈ بار میں اپنی 'Gemini API Key' درج کریں۔")
+    st.warning("براہِ کرم سائیڈ بار میں API Key درج کریں۔")
