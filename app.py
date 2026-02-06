@@ -25,8 +25,10 @@ with st.sidebar:
 if api_key:
     genai.configure(api_key=api_key)
     # یہاں ہم نے 'latest' ماڈل کا استعمال کیا ہے تاکہ Error نہ آئے
-    model = genai.GenerativeModel('gemini-1.5-pro')
-
+# یہ کوڈ خود بخود وہ ماڈل ڈھونڈ لے گا جو آپ کے ریجن میں کام کر رہا ہے
+available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+model_name = 'models/gemini-1.5-pro' if 'models/gemini-1.5-pro' in available_models else available_models[0]
+model = genai.GenerativeModel(model_name)
     # آپشنز
     source = st.radio("تحقیق کا ذریعہ منتخب کریں:", ["لوکل فائل (PDF/Image)", "انٹرنیٹ PDF لنک", "عالمی ویب سرچ"])
 
